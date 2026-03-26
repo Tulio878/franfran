@@ -1,7 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useCart } from "@/context/CartContext";
 import { orderBumps, type OrderBump } from "@/data/products";
-import { Plus, Check, CheckCircle2, Loader2 } from "lucide-react";
+import { Plus, Check, Copy, CheckCircle2, Loader2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { getUtmSearch, getUtmQueryString } from "@/lib/utm";
 
 interface AddressData {
   logradouro: string;
@@ -23,10 +25,7 @@ const shippingOptions: ShippingOption[] = [
   { id: "jadlog", name: "JadLog Package", days: "4 a 6 dias úteis", price: 27.10 },
 ];
 
-type CheckoutStep = "form" | "confirmed";
-
-import { getUtmSearch } from "@/lib/utm";
-
+type CheckoutStep = "form" | "payment" | "confirmed";
 
 const Checkout = () => {
   const { items, clearCart } = useCart();
@@ -45,8 +44,13 @@ const Checkout = () => {
 
   // Payment state
   const [step, setStep] = useState<CheckoutStep>("form");
+  const [pixCode, setPixCode] = useState("");
+  const [transactionId, setTransactionId] = useState("");
   const [loadingPix, setLoadingPix] = useState(false);
   const [pixError, setPixError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAddress = useCallback(async (cepValue: string) => {
     const cleanCep = cepValue.replace(/\D/g, "");
@@ -97,19 +101,89 @@ const Checkout = () => {
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const isFormValid = name.trim() && isEmailValid && cpf.replace(/\D/g, "").length === 11 && phone.replace(/\D/g, "").length >= 10 && address && selectedShipping;
 
-  // Checkout submit (PIX disabled)
+  // Create PIX charge via backend
   const handleCreatePix = async () => {
     if (!isFormValid || total <= 0) return;
     setLoadingPix(true);
     setPixError("");
+
     try {
-      setStep("confirmed");
-      clearCart();
+      const amountCents = Math.round(total * 100);
+      const selectedBumpItems = orderBumps.filter((b) => selectedBumps.includes(b.id));
+
+      const res = await fetch("/api/pix/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amountCents,
+          customer: {
+            name: name.trim(),
+            email: email.trim(),
+            document: cpf.replace(/\D/g, ""),
+            phone: phone.replace(/\D/g, ""),
+          },
+          items: [
+            ...items.map((i) => ({ name: i.product.name, quantity: i.quantity, amount: 0 })),
+            ...selectedBumpItems.map((b) => ({ name: b.name, quantity: 1, amount: Math.round(b.price * 100) })),
+          ],
+          utm: getUtmQueryString(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Erro ao criar cobrança PIX");
+
+      setPixCode(data.pixCode);
+      setTransactionId(data.transactionId);
+      setStep("payment");
     } catch (err: unknown) {
-      setPixError(err instanceof Error ? err.message : "Erro ao processar pedido");
+      setPixError(err instanceof Error ? err.message : "Erro ao criar cobrança PIX");
     } finally {
       setLoadingPix(false);
     }
+  };
+
+  // Poll for payment status
+  useEffect(() => {
+    if (step !== "payment" || !transactionId) return;
+
+    const pollStatus = async () => {
+      try {
+        const res = await fetch(`/api/pix/status?transactionId=${encodeURIComponent(transactionId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "COMPLETED") {
+          setStep("confirmed");
+          clearCart();
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+        }
+      } catch { /* next poll cycle handles it */ }
+    };
+
+    pollingRef.current = setInterval(pollStatus, 5000);
+    pollStatus();
+
+    // Stop polling after 15 minutes
+    pollingTimeoutRef.current = setTimeout(() => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      setPixError("Tempo de pagamento expirado. Tente novamente.");
+      setStep("form");
+    }, 15 * 60 * 1000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+    };
+  }, [step, transactionId, clearCart]);
+
+  const handleCopyPix = async () => {
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* fallback */ }
   };
 
   // Confirmed screen
@@ -132,6 +206,60 @@ const Checkout = () => {
     );
   }
 
+  // Payment screen (QR Code)
+  if (step === "payment") {
+    return (
+      <main className="min-h-screen bg-background">
+        <div className="container max-w-lg py-8 md:py-12">
+          <div className="rounded-xl border border-border p-6 md:p-8 text-center space-y-6">
+            <div>
+              <h2 className="text-lg font-bold text-foreground mb-1">Pague com PIX</h2>
+              <p className="text-sm text-muted-foreground">
+                Escaneie o QR Code ou copie o código abaixo
+              </p>
+            </div>
+
+            <div className="flex justify-center">
+              <div className="rounded-xl border-2 border-border p-4 bg-white">
+                <QRCodeSVG value={pixCode} size={220} level="M" />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Código PIX Copia e Cola:</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={pixCode}
+                  className="flex-1 rounded-lg border border-border bg-secondary px-3 py-2.5 text-xs text-foreground truncate"
+                />
+                <button
+                  onClick={handleCopyPix}
+                  className="flex items-center gap-1.5 rounded-lg bg-buy-button px-4 py-2.5 text-xs font-semibold text-buy-button-foreground uppercase hover:opacity-90 transition-opacity shrink-0"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? "Copiado!" : "Copiar"}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Aguardando pagamento...</span>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-bold text-foreground">R$ {total.toFixed(2).replace(".", ",")}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -297,7 +425,7 @@ const Checkout = () => {
 
             {/* Order Bumps */}
             <section>
-              <h2 className="text-base md:text-lg font-bold text-foreground mb-1.5">Aproveite e leve também! 🔥</h2>
+              <h2 className="text-base md:text-lg font-bold text-foreground mb-1.5">Aproveite e leve também!</h2>
               <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">Ofertas exclusivas só nesta página</p>
               <div className="space-y-2.5 md:space-y-3">
                 {orderBumps.map((bump) => (
