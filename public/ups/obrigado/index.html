@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pedido Confirmado - Oferta Exclusiva</title>
+    <meta name="description" content="Seu pedido foi confirmado! Aproveite uma oferta exclusiva com 90% de desconto.">
+    <meta property="og:title" content="Pedido Confirmado - Oferta Exclusiva">
+  <meta name="twitter:title" content="Pedido Confirmado - Oferta Exclusiva">
+  <meta property="og:description" content="Seu pedido foi confirmado! Aproveite uma oferta exclusiva com 90% de desconto.">
+  <meta name="twitter:description" content="Seu pedido foi confirmado! Aproveite uma oferta exclusiva com 90% de desconto.">
+  <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a6bc9910-dfa1-4f2e-b680-df5a3891c0cc/id-preview-e6011eff--c9c0e222-73f0-40ce-a267-84d66e4f0fbc.lovable.app-1773369215895.png">
+  <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a6bc9910-dfa1-4f2e-b680-df5a3891c0cc/id-preview-e6011eff--c9c0e222-73f0-40ce-a267-84d66e4f0fbc.lovable.app-1773369215895.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:type" content="website">
+  <script type="module" crossorigin src="./assets/index-_4HE8vXf.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index--4C_jqyk.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Capture & forward all URL params across upsell pages
+      (function(){
+        var KEY="utm_params";
+        function getStored(){try{return JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){return{}}}
+        function getQs(){var s=getStored();var qs=new URLSearchParams(s).toString();return qs}
+        function appendQs(url){var qs=getQs();if(!qs)return url;var sep=url.indexOf("?")>-1?"&":"?";return url+sep+qs}
+        // Capture incoming params
+        try{
+          var params=new URLSearchParams(window.location.search);
+          var existing=getStored();
+          params.forEach(function(v,k){existing[k]=v});
+          if(Object.keys(existing).length)localStorage.setItem(KEY,JSON.stringify(existing));
+        }catch(e){}
+        // Intercept <a> clicks
+        document.addEventListener("click",function(e){
+          var a=e.target.closest("a[href]");
+          if(!a)return;
+          var href=a.getAttribute("href");
+          if(!href||href.startsWith("http")||href.startsWith("mailto")||href.startsWith("#"))return;
+          a.setAttribute("href",appendQs(href));
+        },true);
+        // Intercept pushState/replaceState (React Router)
+        var origPush=history.pushState.bind(history);
+        var origReplace=history.replaceState.bind(history);
+        history.pushState=function(s,t,u){if(u&&typeof u==="string")u=appendQs(u);return origPush(s,t,u)};
+        history.replaceState=function(s,t,u){if(u&&typeof u==="string")u=appendQs(u);return origReplace(s,t,u)};
+      })();
+    </script>
+  </body>
+</html>
