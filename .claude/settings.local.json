@@ -6,7 +6,8 @@
       "Bash(grep -oP '.{0,80}/loja.{0,80}' quiz/assets/index-DF7AQWWY.js)",
       "Bash(echo \"exit: $?\")",
       "Bash(npm install:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(ls -la \"/Users/rogicarmen/Downloads/CTVS FACE/FRAN/.env\"*)"
     ]
   }
 }
