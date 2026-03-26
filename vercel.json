@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    { "source": "/quiz", "destination": "/quiz/index.html" },
+    { "source": "/quiz/", "destination": "/quiz/index.html" },
+    { "source": "/quiz/:path*", "destination": "/quiz/:path*" },
+    { "source": "/ups/ilimitado", "destination": "/ups/ilimitado/index.html" },
+    { "source": "/ups/ilimitado/", "destination": "/ups/ilimitado/index.html" },
+    { "source": "/ups/ilimitado/:path*", "destination": "/ups/ilimitado/index.html" },
+    { "source": "/ups/obrigado", "destination": "/ups/obrigado/index.html" },
+    { "source": "/ups/obrigado/", "destination": "/ups/obrigado/index.html" },
+    { "source": "/ups/obrigado/:path*", "destination": "/ups/obrigado/index.html" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ]
+}

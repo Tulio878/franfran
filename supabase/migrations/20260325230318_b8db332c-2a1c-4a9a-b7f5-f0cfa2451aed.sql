@@ -1,0 +1,1 @@
+ALTER TABLE public.pix_transactions ADD COLUMN utm_params jsonb DEFAULT NULL;
