@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"href\\\\|navigate\\\\|redirect\\\\|window.location\\\\|<a\\\\|<Link\" '/Users/rogicarmen/Downloads/CTVS FACE/FRAN/ups' --include=*.html --include=*.js)",
+      "Bash(grep -r \"form action\\\\|<form\\\\|<a href\" '/Users/rogicarmen/Downloads/CTVS FACE/FRAN' --include=*.tsx --include=*.html --include=*.jsx --include=*.js)",
+      "Bash(grep -oP '.{0,80}/loja.{0,80}' quiz/assets/index-DF7AQWWY.js)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}
